@@ -2,6 +2,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface WorkspaceCardProps {
   title: string;
@@ -9,6 +10,7 @@ interface WorkspaceCardProps {
   color: string;
   description: string;
   className?: string;
+  delay?: number;
 }
 
 export const WorkspaceCard: React.FC<WorkspaceCardProps> = ({
@@ -17,36 +19,46 @@ export const WorkspaceCard: React.FC<WorkspaceCardProps> = ({
   color,
   description,
   className,
+  delay = 0,
 }) => {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    // Here we could add navigation or modal opening logic
+    console.log(`Opening ${title} integration`);
+  };
+
   return (
-    <div
+    <button
+      onClick={handleClick}
       className={cn(
-        "group relative overflow-hidden rounded-xl p-6 transition-all duration-300",
-        "bg-white/10 backdrop-blur-lg hover:bg-white/20",
-        "border border-white/10",
-        "animate-fade-in",
+        "group relative w-full overflow-hidden rounded-xl p-6 transition-all duration-300",
+        "bg-white shadow-sm hover:shadow-lg",
+        "border border-gray-100 hover:border-gray-200",
+        "animate-fade-in text-left",
         className
       )}
+      style={{ animationDelay: `${delay}ms` }}
     >
       <div className="relative z-10">
         <div
           className={cn(
             "inline-flex items-center justify-center p-2 rounded-lg mb-4",
-            "bg-white/10 backdrop-blur-sm"
+            "bg-opacity-10 transition-colors duration-300"
           )}
-          style={{ color }}
+          style={{ backgroundColor: `${color}20`, color }}
         >
           <Icon size={24} />
         </div>
-        <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-        <p className="text-white/70 text-sm">{description}</p>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-600 text-sm">{description}</p>
       </div>
       <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300"
+        className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300"
         style={{
           background: `radial-gradient(circle at center, ${color}, transparent 70%)`,
         }}
       />
-    </div>
+    </button>
   );
 };
