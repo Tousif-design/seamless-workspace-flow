@@ -1,11 +1,22 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Video, Users, Monitor, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Meet = () => {
   const navigate = useNavigate();
+  const [meetingCode, setMeetingCode] = useState("");
+
+  const handleStartMeeting = () => {
+    navigate("/meet/room");
+  };
+
+  const handleJoinMeeting = () => {
+    if (meetingCode.trim()) {
+      navigate("/meet/room");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-gray-50">
@@ -21,7 +32,7 @@ const Meet = () => {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-gray-900">Google Meet</h1>
-            <Button className="bg-green-600 hover:bg-green-700">
+            <Button onClick={handleStartMeeting} className="bg-green-600 hover:bg-green-700">
               <Video className="mr-2 h-4 w-4" /> Start Meeting
             </Button>
           </div>
@@ -36,10 +47,12 @@ const Meet = () => {
               <div className="flex gap-2">
                 <input
                   type="text"
+                  value={meetingCode}
+                  onChange={(e) => setMeetingCode(e.target.value)}
                   placeholder="Enter meeting code"
                   className="flex-1 px-3 py-2 border rounded-lg"
                 />
-                <Button>Join</Button>
+                <Button onClick={handleJoinMeeting}>Join</Button>
               </div>
             </div>
 
