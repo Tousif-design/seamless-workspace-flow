@@ -11,6 +11,7 @@ interface WorkspaceCardProps {
   description: string;
   className?: string;
   delay?: number;
+  route: string;
 }
 
 export const WorkspaceCard: React.FC<WorkspaceCardProps> = ({
@@ -20,12 +21,12 @@ export const WorkspaceCard: React.FC<WorkspaceCardProps> = ({
   description,
   className,
   delay = 0,
+  route,
 }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    // Here we could add navigation or modal opening logic
-    console.log(`Opening ${title} integration`);
+    navigate(route);
   };
 
   return (
