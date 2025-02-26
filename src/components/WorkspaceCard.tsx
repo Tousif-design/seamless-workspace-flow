@@ -36,7 +36,6 @@ export const WorkspaceCard: React.FC<WorkspaceCardProps> = ({
         "group relative w-full overflow-hidden rounded-xl p-6 transition-all duration-300",
         "bg-white shadow-sm hover:shadow-lg",
         "border border-gray-100 hover:border-gray-200",
-        "animate-fade-in text-left",
         className
       )}
       style={{ animationDelay: `${delay}ms` }}
