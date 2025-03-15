@@ -19,7 +19,9 @@ import {
   X,
   Check,
   MousePointer,
-  Palette
+  Palette,
+  Layout,
+  FileText
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -30,6 +32,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 type Board = {
   id: string;
@@ -69,6 +74,7 @@ const Jamboard = () => {
   const [actionsHistory, setActionsHistory] = useState<DrawingAction[]>([]);
   const [redoStack, setRedoStack] = useState<DrawingAction[]>([]);
   const [currentPath, setCurrentPath] = useState<{x: number; y: number}[]>([]);
+  const [boardView, setBoardView] = useState<"canvas" | "grid">("canvas");
 
   const [boards, setBoards] = useState<Board[]>([
     {
@@ -161,6 +167,11 @@ const Jamboard = () => {
       context.lineWidth = drawingSettings.size;
     }
   }, [context, drawingSettings]);
+
+  // Effect to redraw canvas when history changes
+  useEffect(() => {
+    drawCanvas();
+  }, [actionsHistory]);
   
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!context) return;
@@ -348,9 +359,6 @@ const Jamboard = () => {
     setActionsHistory(newHistory);
     setRedoStack([...redoStack, lastAction]);
     
-    // Redraw canvas
-    setTimeout(() => drawCanvas(), 0);
-    
     toast.info("Undo successful");
   };
   
@@ -362,9 +370,6 @@ const Jamboard = () => {
     
     setActionsHistory([...actionsHistory, actionToRedo]);
     setRedoStack(newRedoStack);
-    
-    // Redraw canvas
-    setTimeout(() => drawCanvas(), 0);
     
     toast.info("Redo successful");
   };
@@ -462,311 +467,460 @@ const Jamboard = () => {
     }
   };
 
+  const handleDeleteBoard = (id: string) => {
+    if (boards.length <= 1) {
+      toast.error("Cannot delete the last board");
+      return;
+    }
+
+    const updatedBoards = boards.filter(board => board.id !== id);
+    setBoards(updatedBoards);
+    
+    // If active board is deleted, select the first available board
+    if (activeBoard.id === id) {
+      setActiveBoard(updatedBoards[0]);
+      // Clear canvas for new board
+      if (context && canvasRef.current) {
+        context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        setActionsHistory([]);
+        setRedoStack([]);
+      }
+    }
+    
+    toast.success("Board deleted successfully");
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-[1400px] mx-auto p-4 lg:p-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate(-1)}
-          className="mb-6"
-        >
-          <ChevronLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
-
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      <div className="max-w-[1600px] mx-auto p-4 lg:p-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Jamboard</h1>
-          <Dialog open={showNewBoardDialog} onOpenChange={setShowNewBoardDialog}>
-            <DialogTrigger asChild>
-              <Button className="bg-yellow-500 hover:bg-yellow-600 text-white">
-                <Plus className="mr-2 h-4 w-4" /> New Board
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Create New Board</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={newBoardTitle}
-                    onChange={(e) => setNewBoardTitle(e.target.value)}
-                    placeholder="Board title"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowNewBoardDialog(false)}>
-                  Cancel
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => navigate(-1)}
+              className="hover:bg-gray-100"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+              <Palette className="h-6 w-6 text-yellow-500" />
+              Jamboard
+            </h1>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setBoardView(boardView === "canvas" ? "grid" : "canvas")}
+                    className="text-gray-600"
+                  >
+                    {boardView === "canvas" ? <Layout className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{boardView === "canvas" ? "Switch to Grid View" : "Switch to Canvas View"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <Dialog open={showNewBoardDialog} onOpenChange={setShowNewBoardDialog}>
+              <DialogTrigger asChild>
+                <Button className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                  <Plus className="mr-2 h-4 w-4" /> New Board
                 </Button>
-                <Button onClick={handleCreateNewBoard} className="bg-yellow-500 hover:bg-yellow-600">
-                  Create
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-3 lg:order-1 order-2">
-            <Card className="shadow-md bg-white overflow-hidden">
-              <CardHeader className="p-4 border-b bg-gray-50">
-                <CardTitle className="text-lg font-medium">Drawing Tools</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-5">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Tools</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      size="sm"
-                      variant={drawingSettings.tool === "select" ? "default" : "outline"}
-                      className={cn(
-                        "w-full h-10 p-1 flex flex-col items-center justify-center space-y-1",
-                        drawingSettings.tool === "select" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
-                      )}
-                      onClick={() => handleToolSelect("select")}
-                    >
-                      <MousePointer className="h-4 w-4" />
-                      <span className="text-xs">Select</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={drawingSettings.tool === "pencil" ? "default" : "outline"}
-                      className={cn(
-                        "w-full h-10 p-1 flex flex-col items-center justify-center space-y-1",
-                        drawingSettings.tool === "pencil" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
-                      )}
-                      onClick={() => handleToolSelect("pencil")}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      <span className="text-xs">Pencil</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={drawingSettings.tool === "eraser" ? "default" : "outline"}
-                      className={cn(
-                        "w-full h-10 p-1 flex flex-col items-center justify-center space-y-1",
-                        drawingSettings.tool === "eraser" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
-                      )}
-                      onClick={() => handleToolSelect("eraser")}
-                    >
-                      <Eraser className="h-4 w-4" />
-                      <span className="text-xs">Eraser</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={drawingSettings.tool === "square" ? "default" : "outline"}
-                      className={cn(
-                        "w-full h-10 p-1 flex flex-col items-center justify-center space-y-1",
-                        drawingSettings.tool === "square" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
-                      )}
-                      onClick={() => handleToolSelect("square")}
-                    >
-                      <Square className="h-4 w-4" />
-                      <span className="text-xs">Square</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={drawingSettings.tool === "circle" ? "default" : "outline"}
-                      className={cn(
-                        "w-full h-10 p-1 flex flex-col items-center justify-center space-y-1",
-                        drawingSettings.tool === "circle" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
-                      )}
-                      onClick={() => handleToolSelect("circle")}
-                    >
-                      <Circle className="h-4 w-4" />
-                      <span className="text-xs">Circle</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={drawingSettings.tool === "text" ? "default" : "outline"}
-                      className={cn(
-                        "w-full h-10 p-1 flex flex-col items-center justify-center space-y-1",
-                        drawingSettings.tool === "text" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
-                      )}
-                      onClick={() => handleToolSelect("text")}
-                    >
-                      <Type className="h-4 w-4" />
-                      <span className="text-xs">Text</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={drawingSettings.tool === "image" ? "default" : "outline"}
-                      className={cn(
-                        "w-full h-10 p-1 flex flex-col items-center justify-center space-y-1",
-                        drawingSettings.tool === "image" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
-                      )}
-                      onClick={() => handleToolSelect("image")}
-                    >
-                      <Image className="h-4 w-4" />
-                      <span className="text-xs">Image</span>
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Brush Size: {drawingSettings.size}px</Label>
-                  </div>
-                  <Slider
-                    value={[drawingSettings.size]}
-                    min={1}
-                    max={20}
-                    step={1}
-                    onValueChange={(value) => 
-                      setDrawingSettings({
-                        ...drawingSettings,
-                        size: value[0],
-                      })
-                    }
-                    className="py-1"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Color</Label>
-                    <div 
-                      className="w-6 h-6 rounded-full border border-gray-300 shadow-sm" 
-                      style={{ backgroundColor: drawingSettings.color }}
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Board</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={newBoardTitle}
+                      onChange={(e) => setNewBoardTitle(e.target.value)}
+                      placeholder="Board title"
                     />
                   </div>
-                  <div className="grid grid-cols-8 gap-1">
-                    {colorPalette.map((color) => (
-                      <button
-                        key={color}
-                        className={`w-6 h-6 rounded-full border ${
-                          drawingSettings.color === color ? 'ring-2 ring-yellow-500 ring-offset-1' : 'border-gray-300'
-                        }`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => handleColorSelect(color)}
-                      />
-                    ))}
-                  </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">History</Label>
-                  <div className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={handleUndo}
-                      disabled={actionsHistory.length === 0}
-                    >
-                      <Undo className="h-4 w-4 mr-1" />
-                      Undo
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={handleRedo}
-                      disabled={redoStack.length === 0}
-                    >
-                      <Redo className="h-4 w-4 mr-1" />
-                      Redo
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Actions</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" size="sm" onClick={clearCanvas}>
-                      <Trash className="h-4 w-4 mr-1" />
-                      Clear
-                    </Button>
-                    <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600" onClick={handleSaveBoard}>
-                      <Save className="h-4 w-4 mr-1" />
-                      Save
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleDownloadBoard}>
-                      <Download className="h-4 w-4 mr-1" />
-                      Export
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleShareBoard}>
-                      <Share2 className="h-4 w-4 mr-1" />
-                      Share
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="lg:col-span-9 lg:order-2 order-1">
-            <Card className="shadow-md bg-white overflow-hidden">
-              <CardHeader className="border-b p-3 bg-gray-50 flex-row justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <Palette className="h-5 w-5 text-yellow-500" />
-                  <h2 className="text-lg font-semibold tracking-tight">{activeBoard.title}</h2>
-                </div>
-                <div className="text-xs text-gray-500">
-                  Last edited: {formatDate(activeBoard.lastEdited)}
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 relative">
-                <div className="relative bg-white border border-gray-100 shadow-sm rounded-sm overflow-hidden" style={{ height: "calc(100vh - 230px)", minHeight: "500px" }}>
-                  <canvas
-                    ref={canvasRef}
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={endDrawing}
-                    onMouseLeave={endDrawing}
-                    className="w-full h-full cursor-crosshair"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowNewBoardDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateNewBoard} className="bg-yellow-500 hover:bg-yellow-600">
+                    Create
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold tracking-tight mb-4">Recent Boards</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {boards.map((board) => (
-              <Card
-                key={board.id}
-                className={`hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:-translate-y-1 ${
-                  activeBoard.id === board.id ? 'ring-2 ring-yellow-500' : ''
-                }`}
-                onClick={() => {
-                  setActiveBoard(board);
-                  // Reset canvas when switching boards
-                  if (context && canvasRef.current) {
-                    context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-                    setActionsHistory([]);
-                    setRedoStack([]);
-                  }
-                }}
-              >
-                <CardContent className="p-0 overflow-hidden">
-                  <div className="aspect-video bg-white border-b overflow-hidden">
-                    <img 
-                      src={board.thumbnail} 
-                      alt={board.title}
-                      className="w-full h-full object-contain"
-                    />
+        {boardView === "canvas" ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-9 lg:order-1 order-2">
+              <Card className="shadow-md bg-white overflow-hidden">
+                <CardHeader className="border-b p-3 bg-gray-50 flex-row justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <Palette className="h-5 w-5 text-yellow-500" />
+                    <h2 className="text-lg font-semibold tracking-tight">{activeBoard.title}</h2>
+                    <Badge variant="outline" className="ml-2 text-xs">
+                      Last edited: {formatDate(activeBoard.lastEdited)}
+                    </Badge>
                   </div>
-                  <div className="p-3">
-                    <h3 className="font-medium text-gray-900 truncate">{board.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">Edited {formatDate(board.lastEdited)}</p>
+                  <div className="flex items-center gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={handleUndo} disabled={actionsHistory.length === 0}>
+                            <Undo className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Undo</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={handleRedo} disabled={redoStack.length === 0}>
+                            <Redo className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Redo</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={clearCanvas}>
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Clear Canvas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <Separator orientation="vertical" className="h-6" />
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={handleSaveBoard}>
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Save Board</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={handleDownloadBoard}>
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Download Board</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={handleShareBoard}>
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Share Board</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 relative">
+                  <div className="relative bg-white border border-gray-100 shadow-sm rounded-sm overflow-hidden" style={{ height: "calc(100vh - 230px)", minHeight: "500px" }}>
+                    <canvas
+                      ref={canvasRef}
+                      onMouseDown={startDrawing}
+                      onMouseMove={draw}
+                      onMouseUp={endDrawing}
+                      onMouseLeave={endDrawing}
+                      className="w-full h-full cursor-crosshair"
+                    />
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            </div>
+
+            <div className="lg:col-span-3 lg:order-2 order-1">
+              <Card className="shadow-md bg-white overflow-hidden sticky top-6">
+                <CardHeader className="p-3 border-b bg-gray-50">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-500">
+                      <path d="M15.5 15.5L18.5 18.5M10.5 9H10.51M13.5 9H13.51M7.5 9H7.51M10.5 13H10.51M13.5 13H13.51M7.5 13H7.51M10.5 17H10.51M13.5 17H13.51M7.5 17H7.51M20.5 8.5V16.5C20.5 19.2614 18.2614 21.5 15.5 21.5H8.5C5.73858 21.5 3.5 19.2614 3.5 16.5V7.5C3.5 4.73858 5.73858 2.5 8.5 2.5H15.5C18.2614 2.5 20.5 4.73858 20.5 7.5V8.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Drawing Tools
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-5">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Tools</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { tool: "select", icon: MousePointer, label: "Select" },
+                        { tool: "pencil", icon: Pencil, label: "Pencil" },
+                        { tool: "eraser", icon: Eraser, label: "Eraser" },
+                        { tool: "square", icon: Square, label: "Square" },
+                        { tool: "circle", icon: Circle, label: "Circle" },
+                        { tool: "text", icon: Type, label: "Text" },
+                        { tool: "image", icon: Image, label: "Image" },
+                      ].map(({ tool, icon: Icon, label }) => (
+                        <TooltipProvider key={tool}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant={drawingSettings.tool === tool as DrawingSettings["tool"] ? "default" : "outline"}
+                                className={cn(
+                                  "p-1 h-9 w-full",
+                                  drawingSettings.tool === tool ? "bg-yellow-500 hover:bg-yellow-600 text-white" : "border-gray-200"
+                                )}
+                                onClick={() => handleToolSelect(tool as DrawingSettings["tool"])}
+                              >
+                                <Icon className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{label}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-gray-700">Brush Size: {drawingSettings.size}px</Label>
+                    </div>
+                    <Slider
+                      value={[drawingSettings.size]}
+                      min={1}
+                      max={20}
+                      step={1}
+                      onValueChange={(value) => 
+                        setDrawingSettings({
+                          ...drawingSettings,
+                          size: value[0],
+                        })
+                      }
+                      className="py-1"
+                    />
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-gray-700">Colors</Label>
+                      <div 
+                        className="w-5 h-5 rounded-full border border-gray-300 shadow-sm" 
+                        style={{ backgroundColor: drawingSettings.color }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-8 gap-1">
+                      {colorPalette.map((color) => (
+                        <TooltipProvider key={color}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={`w-5 h-5 rounded-full border transition-all ${
+                                  drawingSettings.color === color ? 'ring-2 ring-yellow-500 ring-offset-1 scale-110' : 'border-gray-300 hover:scale-110'
+                                }`}
+                                style={{ backgroundColor: color }}
+                                onClick={() => handleColorSelect(color)}
+                              />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{color}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Boards Section */}
+              <Card className="shadow-md bg-white overflow-hidden mt-6">
+                <CardHeader className="p-3 border-b bg-gray-50">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-yellow-500">
+                      <path d="M2 6H6M2 12H6M2 18H6M19.5 6H10.5M19.5 12H10.5M19.5 18H10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Your Boards
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 max-h-[400px] overflow-y-auto">
+                  <div className="space-y-3">
+                    {boards.map((board) => (
+                      <div 
+                        key={board.id} 
+                        className={`group flex items-center p-2 rounded-md hover:bg-gray-50 cursor-pointer transition-all ${
+                          activeBoard.id === board.id ? 'bg-yellow-50 border-l-4 border-yellow-500 pl-1' : ''
+                        }`}
+                        onClick={() => {
+                          if (activeBoard.id !== board.id) {
+                            setActiveBoard(board);
+                            if (context && canvasRef.current) {
+                              context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                              setActionsHistory([]);
+                              setRedoStack([]);
+                            }
+                          }
+                        }}
+                      >
+                        <div className="w-10 h-10 rounded-sm overflow-hidden border border-gray-200 flex-shrink-0">
+                          <img 
+                            src={board.thumbnail} 
+                            alt={board.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="ml-3 flex-1 min-w-0">
+                          <h3 className="font-medium text-sm text-gray-900 truncate">{board.title}</h3>
+                          <p className="text-xs text-gray-500">Edited {formatDate(board.lastEdited)}</p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteBoard(board.id);
+                          }}
+                        >
+                          <Trash className="h-3.5 w-3.5 text-gray-500" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold tracking-tight">All Boards</h2>
+              <Input 
+                placeholder="Search boards..." 
+                className="max-w-xs"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {boards.map((board) => (
+                <Card
+                  key={board.id}
+                  className={`hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:-translate-y-1 group ${
+                    activeBoard.id === board.id ? 'ring-2 ring-yellow-500' : ''
+                  }`}
+                >
+                  <CardContent className="p-0 overflow-hidden">
+                    <div className="aspect-video bg-white border-b relative group overflow-hidden">
+                      <img 
+                        src={board.thumbnail} 
+                        alt={board.title}
+                        className="w-full h-full object-cover"
+                        onClick={() => {
+                          setActiveBoard(board);
+                          setBoardView("canvas");
+                          if (context && canvasRef.current) {
+                            context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                            setActionsHistory([]);
+                            setRedoStack([]);
+                          }
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <div className="flex gap-1">
+                          <Button 
+                            size="icon" 
+                            variant="secondary" 
+                            className="h-8 w-8 bg-white hover:bg-gray-100"
+                            onClick={() => {
+                              setActiveBoard(board);
+                              setBoardView("canvas");
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button 
+                            size="icon" 
+                            variant="secondary" 
+                            className="h-8 w-8 bg-white hover:bg-gray-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteBoard(board.id);
+                            }}
+                          >
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <h3 className="font-medium text-gray-900 truncate">{board.title}</h3>
+                      <p className="text-sm text-gray-500 mt-1">Edited {formatDate(board.lastEdited)}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              
+              {/* Create New Board Card */}
+              <button
+                onClick={() => setShowNewBoardDialog(true)}
+                className="border-2 border-dashed border-gray-200 rounded-xl h-full min-h-[200px] flex flex-col items-center justify-center p-6 text-gray-400 hover:text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-all group"
+              >
+                <div className="w-12 h-12 rounded-full bg-gray-100 group-hover:bg-yellow-50 flex items-center justify-center mb-3 transition-colors">
+                  <Plus className="h-6 w-6 text-gray-400 group-hover:text-yellow-500 transition-colors" />
+                </div>
+                <p className="text-center font-medium">Create New Board</p>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Share Dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Share Board</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-4 w-4 text-yellow-500" />
+              Share Board
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -776,7 +930,7 @@ const Jamboard = () => {
                   id="shareLink"
                   value={`https://workspace.example.com/jamboard/${activeBoard.id}`}
                   readOnly
-                  className="flex-1 mr-2"
+                  className="flex-1 mr-2 bg-gray-50"
                 />
                 <Button 
                   size="sm" 
@@ -793,8 +947,8 @@ const Jamboard = () => {
             <div className="grid gap-2">
               <Label>Share with</Label>
               <Input placeholder="Enter email addresses" />
-              <div className="flex items-center mt-2">
-                <div className="bg-gray-100 text-gray-800 text-xs font-medium mr-2 px-2.5 py-1 rounded border border-gray-300 flex items-center">
+              <div className="flex flex-wrap gap-2 mt-2">
+                <div className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-1 rounded border border-gray-300 flex items-center">
                   john.doe@example.com
                   <button className="ml-1">
                     <X className="h-3 w-3" />
